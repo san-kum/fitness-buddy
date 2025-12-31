@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"fitness-buddy/internal/api"
 	"fitness-buddy/internal/database"
@@ -47,7 +48,20 @@ func main() {
 			if err != nil {
 				log.Fatalf("Failed to read migration file %s: %v", entry.Name(), err)
 			}
-			if _, err := db.Pool.ExecContext(context.Background(), string(content)); err != nil {
+            
+            sqlContent := string(content)
+            
+            // Dialect Translation for SQLite
+            if !strings.HasPrefix(dbUrl, "postgres") && !strings.HasPrefix(dbUrl, "postgresql") {
+                sqlContent = strings.ReplaceAll(sqlContent, "SERIAL PRIMARY KEY", "INTEGER PRIMARY KEY AUTOINCREMENT")
+                sqlContent = strings.ReplaceAll(sqlContent, "TIMESTAMPTZ", "DATETIME")
+                sqlContent = strings.ReplaceAll(sqlContent, "CURRENT_TIMESTAMP", "CURRENT_TIMESTAMP")
+                sqlContent = strings.ReplaceAll(sqlContent, "ON CONFLICT DO NOTHING", "") // SQLite has different syntax but we use OR IGNORE usually. 
+                // Let's handle seeding specifically
+                sqlContent = strings.ReplaceAll(sqlContent, "INSERT INTO", "INSERT OR IGNORE INTO")
+            }
+
+			if _, err := db.Pool.ExecContext(context.Background(), sqlContent); err != nil {
 				log.Printf("Migration warning for %s: %v", entry.Name(), err)
 			}
 		}
