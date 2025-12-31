@@ -1,0 +1,45 @@
+# Databases
+*.db
+*.db-wal
+*.db-shm
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+backend/server.log
+
+# Backend (Go)
+backend/fitness-buddy
+backend/cmd/server/dist
+backend/vendor/
+
+# Frontend (Node/React)
+frontend/node_modules/
+frontend/dist/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+frontend/.pnp
+frontend/.pnp.js
+
+# Coverage
+frontend/coverage/
+
+# Production build
+dist/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
