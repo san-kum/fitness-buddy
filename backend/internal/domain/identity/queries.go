@@ -13,16 +13,40 @@ func NewRepository(db *database.DB) *Repository {
 	return &Repository{db: db}
 }
 
-func (r *Repository) GetUser(ctx context.Context) (*User, error) {
-	query := `SELECT id, name, height_cm, dob, sex, activity_level, weight_goal, created_at, updated_at FROM users ORDER BY id LIMIT 1`
-	row := r.db.Pool.QueryRowContext(ctx, query)
+func (r *Repository) GetUser(ctx context.Context, userID int) (*User, error) {
+	query := `SELECT id, name, email, google_id, height_cm, dob, sex, activity_level, weight_goal, created_at, updated_at FROM users WHERE id = ?`
+	row := r.db.Pool.QueryRowContext(ctx, query, userID)
 
 	var u User
-	err := row.Scan(&u.ID, &u.Name, &u.HeightCM, &u.DOB, &u.Sex, &u.ActivityLevel, &u.WeightGoal, &u.CreatedAt, &u.UpdatedAt)
+	err := row.Scan(&u.ID, &u.Name, &u.Email, &u.GoogleID, &u.HeightCM, &u.DOB, &u.Sex, &u.ActivityLevel, &u.WeightGoal, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return &u, nil
+}
+
+func (r *Repository) GetOrCreateUserByGoogleID(ctx context.Context, googleID, email, name string) (*User, error) {
+	query := `SELECT id, name, email, google_id, height_cm, dob, sex, activity_level, weight_goal, created_at, updated_at FROM users WHERE google_id = ?`
+	row := r.db.Pool.QueryRowContext(ctx, query, googleID)
+
+	var u User
+	err := row.Scan(&u.ID, &u.Name, &u.Email, &u.GoogleID, &u.HeightCM, &u.DOB, &u.Sex, &u.ActivityLevel, &u.WeightGoal, &u.CreatedAt, &u.UpdatedAt)
+	if err == nil {
+		return &u, nil
+	}
+
+	// Create new user if not found
+	insertQuery := `INSERT INTO users (name, email, google_id) VALUES (?, ?, ?)`
+	res, err := r.db.Pool.ExecContext(ctx, insertQuery, name, email, googleID)
+	if err != nil {
+		return nil, err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	return r.GetUserByID(ctx, int(id))
 }
 
 func (r *Repository) CreateUser(ctx context.Context, name string, height *float64, dob *string, sex *string, activity *string, goal *string) (*User, error) {
@@ -84,11 +108,11 @@ func (r *Repository) UpdateUser(ctx context.Context, id int, name string, height
 }
 
 func (r *Repository) GetUserByID(ctx context.Context, id int) (*User, error) {
-	query := `SELECT id, name, height_cm, dob, sex, activity_level, weight_goal, created_at, updated_at FROM users WHERE id = ?`
+	query := `SELECT id, name, email, google_id, height_cm, dob, sex, activity_level, weight_goal, created_at, updated_at FROM users WHERE id = ?`
 	row := r.db.Pool.QueryRowContext(ctx, query, id)
 
 	var u User
-	err := row.Scan(&u.ID, &u.Name, &u.HeightCM, &u.DOB, &u.Sex, &u.ActivityLevel, &u.WeightGoal, &u.CreatedAt, &u.UpdatedAt)
+	err := row.Scan(&u.ID, &u.Name, &u.Email, &u.GoogleID, &u.HeightCM, &u.DOB, &u.Sex, &u.ActivityLevel, &u.WeightGoal, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}

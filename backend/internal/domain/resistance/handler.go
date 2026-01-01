@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+    "fitness-buddy/internal/auth"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -81,8 +82,8 @@ func (h *Handler) CreateExercise(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListSessions(w http.ResponseWriter, r *http.Request) {
-    // Single user = 1
-    sessions, err := h.repo.ListSessions(r.Context(), 1, 20)
+    userID := auth.GetUserID(r.Context())
+    sessions, err := h.repo.ListSessions(r.Context(), userID, 20)
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
@@ -119,7 +120,8 @@ func (h *Handler) CreateSession(w http.ResponseWriter, r *http.Request) {
         req.StartTime = time.Now()
     }
 
-    s, err := h.repo.CreateSession(r.Context(), 1, req.StartTime, req.Notes)
+    userID := auth.GetUserID(r.Context())
+    s, err := h.repo.CreateSession(r.Context(), userID, req.StartTime, req.Notes)
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
@@ -210,7 +212,8 @@ func (h *Handler) DeleteSet(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListRoutines(w http.ResponseWriter, r *http.Request) {
-    routines, err := h.repo.ListRoutines(r.Context(), 1) // User 1
+    userID := auth.GetUserID(r.Context())
+    routines, err := h.repo.ListRoutines(r.Context(), userID)
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
@@ -231,7 +234,8 @@ func (h *Handler) CreateRoutine(w http.ResponseWriter, r *http.Request) {
         return
     }
     
-    rt, err := h.repo.CreateRoutine(r.Context(), 1, req.Name, req.Notes, req.ExerciseIDs)
+    userID := auth.GetUserID(r.Context())
+    rt, err := h.repo.CreateRoutine(r.Context(), userID, req.Name, req.Notes, req.ExerciseIDs)
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return

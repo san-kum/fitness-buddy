@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import type { User, BodyMetric } from '../lib/api';
-import { Save, User as UserIcon, Ruler, Weight, Activity, Zap } from 'lucide-react';
+import { Save, User as UserIcon, Ruler, Weight, Activity, Zap, LogOut } from 'lucide-react';
 import clsx from 'clsx';
 
 const ACTIVITY_LEVELS = [
+// ... (rest of the constants)
     { label: 'Sedentary (Office job, little exercise)', value: 'Sedentary', factor: 1.2 },
     { label: 'Lightly Active (Light exercise 1-3 days/week)', value: 'Lightly Active', factor: 1.375 },
     { label: 'Moderately Active (Moderate exercise 3-5 days/week)', value: 'Moderately Active', factor: 1.55 },
@@ -135,7 +136,24 @@ export default function Profile() {
                 <UserIcon size={64} className="text-neutral-700 group-hover:text-white transition-colors" />
             </div>
             <div className="text-center md:text-left space-y-4">
-                <h2 className="text-5xl font-black text-white tracking-tighter italic uppercase">{user?.name || "Anonymous"}</h2>
+                <div className="flex flex-col md:flex-row items-center gap-4">
+                    <h2 className="text-5xl font-black text-white tracking-tighter italic uppercase">{user?.name || "Anonymous"}</h2>
+                    {!user?.google_id ? (
+                        <a 
+                            href="/api/auth/google/login" 
+                            className="bg-white text-black px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-neutral-200 transition-colors flex items-center gap-2"
+                        >
+                            <Zap size={12} fill="currentColor" /> Connect Account
+                        </a>
+                    ) : (
+                        <a 
+                            href="/api/auth/logout"
+                            className="bg-red-500/10 text-red-500 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest hover:bg-red-500/20 transition-colors flex items-center gap-2"
+                        >
+                            <LogOut size={12} /> Disconnect ({user.email})
+                        </a>
+                    )}
+                </div>
                 <div className="flex flex-wrap justify-center md:justify-start gap-6">
                     <HeaderStat icon={<Ruler size={14}/>} label="Height" value={`${user?.height_cm || "-"} cm`} />
                     <HeaderStat icon={<Weight size={14}/>} label="Weight" value={`${latestMetric?.weight_kg || "-"} kg`} />

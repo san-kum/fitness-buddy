@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+    "fitness-buddy/internal/auth"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -26,7 +27,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 }
 
 func (h *Handler) ListRuns(w http.ResponseWriter, r *http.Request) {
-	runs, err := h.repo.ListRuns(r.Context(), 1, 100)
+    userID := auth.GetUserID(r.Context())
+	runs, err := h.repo.ListRuns(r.Context(), userID, 100)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -60,7 +62,8 @@ func (h *Handler) CreateRun(w http.ResponseWriter, r *http.Request) {
 		req.StartTime = time.Now()
 	}
 
-	run, err := h.repo.CreateRun(r.Context(), 1, req.StartTime, req.DurationSeconds, req.DistanceMeters, req.ElevationGain, req.AvgHeartRate, req.Cadence, req.RelativeEffort, req.ShoeID, req.Steps, req.RouteData, req.RunType, req.Notes)
+    userID := auth.GetUserID(r.Context())
+	run, err := h.repo.CreateRun(r.Context(), userID, req.StartTime, req.DurationSeconds, req.DistanceMeters, req.ElevationGain, req.AvgHeartRate, req.Cadence, req.RelativeEffort, req.ShoeID, req.Steps, req.RouteData, req.RunType, req.Notes)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -79,7 +82,8 @@ func (h *Handler) DeleteRun(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListShoes(w http.ResponseWriter, r *http.Request) {
-	shoes, err := h.repo.ListShoes(r.Context(), 1)
+    userID := auth.GetUserID(r.Context())
+	shoes, err := h.repo.ListShoes(r.Context(), userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -96,7 +100,8 @@ func (h *Handler) CreateShoe(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	shoe, err := h.repo.CreateShoe(r.Context(), 1, req.Brand, req.Model)
+    userID := auth.GetUserID(r.Context())
+	shoe, err := h.repo.CreateShoe(r.Context(), userID, req.Brand, req.Model)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -22,9 +22,16 @@ func NewRouter(db *database.DB, frontendFS fs.FS) http.Handler {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RealIP)
+	r.Use(JWTMiddleware)
+
+	identityRepo := identity.NewRepository(db)
+	authHandler := NewAuthHandler(identityRepo)
 
 	r.Route("/api", func(r chi.Router) {
-		identityRepo := identity.NewRepository(db)
+		r.Get("/auth/google/login", authHandler.HandleGoogleLogin)
+		r.Get("/auth/google/callback", authHandler.HandleGoogleCallback)
+		r.Get("/auth/logout", authHandler.HandleLogout)
+
 		identityHandler := identity.NewHandler(identityRepo)
 		identityHandler.RegisterRoutes(r)
 

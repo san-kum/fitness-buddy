@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"time"
+    "fitness-buddy/internal/auth"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -37,7 +38,8 @@ func (h *Handler) LogWater(w http.ResponseWriter, r *http.Request) {
         http.Error(w, err.Error(), http.StatusBadRequest)
         return
     }
-    if err := h.repo.LogWater(r.Context(), 1, req.Amount); err != nil {
+    userID := auth.GetUserID(r.Context())
+    if err := h.repo.LogWater(r.Context(), userID, req.Amount); err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
     }
@@ -84,7 +86,8 @@ func (h *Handler) DeleteFoodEntry(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListMeals(w http.ResponseWriter, r *http.Request) {
-	meals, err := h.repo.ListMeals(r.Context(), 1, 20)
+    userID := auth.GetUserID(r.Context())
+	meals, err := h.repo.ListMeals(r.Context(), userID, 20)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -114,7 +117,8 @@ func (h *Handler) CreateMeal(w http.ResponseWriter, r *http.Request) {
 		req.EatenAt = time.Now()
 	}
 
-	m, err := h.repo.CreateMeal(r.Context(), 1, req.Name, req.EatenAt)
+    userID := auth.GetUserID(r.Context())
+	m, err := h.repo.CreateMeal(r.Context(), userID, req.Name, req.EatenAt)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

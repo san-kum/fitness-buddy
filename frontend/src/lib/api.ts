@@ -72,6 +72,8 @@ export const api = {
 export interface User {
   id: number;
   name: string;
+  email?: string;
+  google_id?: string;
   height_cm?: number;
   dob?: string;
   sex?: string;

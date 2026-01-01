@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+    "fitness-buddy/internal/auth"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -22,7 +23,8 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 }
 
 func (h *Handler) ListMetrics(w http.ResponseWriter, r *http.Request) {
-    metrics, err := h.repo.ListMetrics(r.Context(), 1, 50)
+    userID := auth.GetUserID(r.Context())
+    metrics, err := h.repo.ListMetrics(r.Context(), userID, 50)
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
@@ -47,7 +49,8 @@ func (h *Handler) CreateMetric(w http.ResponseWriter, r *http.Request) {
         req.RecordedAt = time.Now()
     }
 
-    bm, err := h.repo.CreateMetric(r.Context(), 1, req.RecordedAt, req.WeightKG, req.BodyFatPercent)
+    userID := auth.GetUserID(r.Context())
+    bm, err := h.repo.CreateMetric(r.Context(), userID, req.RecordedAt, req.WeightKG, req.BodyFatPercent)
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return

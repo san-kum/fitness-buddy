@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+    "fitness-buddy/internal/auth"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -40,7 +41,8 @@ func (h *Handler) GetDailySummaries(w http.ResponseWriter, r *http.Request) {
         }
     }
     
-    summaries, err := h.repo.GetDailySummaries(r.Context(), 1, startDate, endDate)
+    userID := auth.GetUserID(r.Context())
+    summaries, err := h.repo.GetDailySummaries(r.Context(), userID, startDate, endDate)
     if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
         return
