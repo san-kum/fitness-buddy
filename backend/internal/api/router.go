@@ -12,6 +12,7 @@ import (
 	"fitness-buddy/internal/domain/nutrition"
 	"fitness-buddy/internal/domain/resistance"
 	"fitness-buddy/internal/domain/running"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 )
@@ -28,6 +29,13 @@ func NewRouter(db *database.DB, frontendFS fs.FS) http.Handler {
 	authHandler := NewAuthHandler(identityRepo)
 
 	r.Route("/api", func(r chi.Router) {
+		// Set Content-Type for all API responses
+		r.Use(func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				next.ServeHTTP(w, r)
+			})
+		})
 		r.Get("/auth/google/login", authHandler.HandleGoogleLogin)
 		r.Get("/auth/google/callback", authHandler.HandleGoogleCallback)
 		r.Get("/auth/logout", authHandler.HandleLogout)
@@ -60,7 +68,7 @@ func NewRouter(db *database.DB, frontendFS fs.FS) http.Handler {
 	if frontendFS != nil {
 		fileServer := http.FileServer(http.FS(frontendFS))
 		r.Handle("/*", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// If the request doesn't have an extension (like .js or .css), 
+			// If the request doesn't have an extension (like .js or .css),
 			// serve index.html to support React Router's SPA routing.
 			if !strings.Contains(r.URL.Path, ".") && r.URL.Path != "/" {
 				r.URL.Path = "/"

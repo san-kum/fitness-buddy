@@ -2,10 +2,10 @@ package nutrition
 
 import (
 	"encoding/json"
+	"fitness-buddy/internal/auth"
 	"net/http"
 	"strconv"
 	"time"
-    "fitness-buddy/internal/auth"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -27,28 +27,32 @@ func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Delete("/meals/entries/{id}", h.DeleteFoodEntry)
 	r.Get("/nutrition/library", h.ListFoodLibrary)
 	r.Post("/nutrition/library", h.CreateFoodLibraryItem)
-    r.Post("/nutrition/water", h.LogWater)
+	r.Post("/nutrition/water", h.LogWater)
 }
 
 func (h *Handler) LogWater(w http.ResponseWriter, r *http.Request) {
-    var req struct {
-        Amount int `json:"amount_ml"`
-    }
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        http.Error(w, err.Error(), http.StatusBadRequest)
-        return
-    }
-    userID := auth.GetUserID(r.Context())
-    if err := h.repo.LogWater(r.Context(), userID, req.Amount); err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
-    w.WriteHeader(http.StatusOK)
+	var req struct {
+		Amount int `json:"amount_ml"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	userID := auth.GetUserID(r.Context())
+	if err := h.repo.LogWater(r.Context(), userID, req.Amount); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (h *Handler) UpdateMeal(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	id, _ := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid meal ID", http.StatusBadRequest)
+		return
+	}
 
 	var req struct {
 		Name string `json:"name"`
@@ -67,7 +71,11 @@ func (h *Handler) UpdateMeal(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	id, _ := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid meal ID", http.StatusBadRequest)
+		return
+	}
 	if err := h.repo.DeleteMeal(r.Context(), id); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -77,7 +85,11 @@ func (h *Handler) DeleteMeal(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) DeleteFoodEntry(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
-	id, _ := strconv.Atoi(idStr)
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		http.Error(w, "Invalid entry ID", http.StatusBadRequest)
+		return
+	}
 	if err := h.repo.DeleteFoodEntry(r.Context(), id); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -86,7 +98,7 @@ func (h *Handler) DeleteFoodEntry(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListMeals(w http.ResponseWriter, r *http.Request) {
-    userID := auth.GetUserID(r.Context())
+	userID := auth.GetUserID(r.Context())
 	meals, err := h.repo.ListMeals(r.Context(), userID, 20)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -117,7 +129,7 @@ func (h *Handler) CreateMeal(w http.ResponseWriter, r *http.Request) {
 		req.EatenAt = time.Now()
 	}
 
-    userID := auth.GetUserID(r.Context())
+	userID := auth.GetUserID(r.Context())
 	m, err := h.repo.CreateMeal(r.Context(), userID, req.Name, req.EatenAt)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -137,7 +149,11 @@ type AddFoodEntryRequest struct {
 
 func (h *Handler) AddFoodEntry(w http.ResponseWriter, r *http.Request) {
 	mealIDStr := chi.URLParam(r, "id")
-	mealID, _ := strconv.Atoi(mealIDStr)
+	mealID, err := strconv.Atoi(mealIDStr)
+	if err != nil {
+		http.Error(w, "Invalid meal ID", http.StatusBadRequest)
+		return
+	}
 
 	var req AddFoodEntryRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {

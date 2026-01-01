@@ -7,24 +7,34 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"fitness-buddy/internal/auth"
 	"fitness-buddy/internal/domain/identity"
+
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
 
 var (
-	jwtSecret = []byte(os.Getenv("JWT_SECRET"))
+	jwtSecret     []byte
+	jwtSecretOnce sync.Once
 )
 
-func getGoogleOauthConfig() *oauth2.Config {
-	if len(jwtSecret) == 0 {
-		jwtSecret = []byte("default_secret_for_dev_only")
-	}
+func getJWTSecret() []byte {
+	jwtSecretOnce.Do(func() {
+		secret := os.Getenv("JWT_SECRET")
+		if secret == "" {
+			secret = "default_secret_for_dev_only"
+		}
+		jwtSecret = []byte(secret)
+	})
+	return jwtSecret
+}
 
+func getGoogleOauthConfig() *oauth2.Config {
 	return &oauth2.Config{
 		RedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"),
 		ClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
@@ -88,7 +98,7 @@ func (h *AuthHandler) HandleGoogleCallback(w http.ResponseWriter, r *http.Reques
 		"exp":     time.Now().Add(time.Hour * 24 * 7).Unix(),
 	})
 
-	tokenString, err := jwtToken.SignedString(jwtSecret)
+	tokenString, err := jwtToken.SignedString(getJWTSecret())
 	if err != nil {
 		http.Error(w, "Failed to sign token: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -149,7 +159,7 @@ func JWTMiddleware(next http.Handler) http.Handler {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			return jwtSecret, nil
+			return getJWTSecret(), nil
 		})
 
 		if err != nil || !token.Valid {
@@ -171,7 +181,16 @@ func JWTMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		userID := int(claims["user_id"].(float64))
+		userIDFloat, ok := claims["user_id"].(float64)
+		if !ok {
+			if strings.HasPrefix(r.URL.Path, "/api/") {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+			next.ServeHTTP(w, r)
+			return
+		}
+		userID := int(userIDFloat)
 		ctx := auth.WithUserID(r.Context(), userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})

@@ -1,13 +1,21 @@
 const API_URL = "/api";
 
 export async function fetcher<T>(url: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_URL}${url}`, options);
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(options?.headers || {}),
+  };
+
+  const res = await fetch(`${API_URL}${url}`, {
+    ...options,
+    headers,
+  });
   const text = await res.text();
-  
+
   if (!res.ok) {
     throw new Error(text || `Error ${res.status}`);
   }
-  
+
   try {
     return text ? JSON.parse(text) : {} as T;
   } catch (e) {
@@ -60,10 +68,10 @@ export const api = {
   },
   analytics: {
     daily: (start?: string, end?: string) => {
-        const params = new URLSearchParams();
-        if (start) params.append("start", start);
-        if (end) params.append("end", end);
-        return fetcher<DailySummary[]>(`/analytics/daily?${params.toString()}`);
+      const params = new URLSearchParams();
+      if (start) params.append("start", start);
+      if (end) params.append("end", end);
+      return fetcher<DailySummary[]>(`/analytics/daily?${params.toString()}`);
     }
   }
 };
@@ -107,16 +115,16 @@ export interface WorkoutSet {
 }
 
 export interface Routine {
-    id: number;
-    name: string;
-    exercises?: RoutineExercise[];
+  id: number;
+  name: string;
+  exercises?: RoutineExercise[];
 }
 
 export interface RoutineExercise {
-    id: number;
-    exercise_id: number;
-    exercise_name: string;
-    exercise_order: number;
+  id: number;
+  exercise_id: number;
+  exercise_name: string;
+  exercise_order: number;
 }
 
 export interface Run {
@@ -137,10 +145,10 @@ export interface Run {
 }
 
 export interface Shoe {
-    id: number;
-    brand: string;
-    model: string;
-    is_active: boolean;
+  id: number;
+  brand: string;
+  model: string;
+  is_active: boolean;
 }
 
 export interface Meal {
@@ -162,12 +170,12 @@ export interface FoodEntry {
 }
 
 export interface FoodLibraryItem {
-    id: number;
-    name: string;
-    calories_per_100g: number;
-    protein_per_100g: number;
-    carbs_per_100g: number;
-    fat_per_100g: number;
+  id: number;
+  name: string;
+  calories_per_100g: number;
+  protein_per_100g: number;
+  carbs_per_100g: number;
+  fat_per_100g: number;
 }
 
 export interface BodyMetric {
@@ -178,14 +186,14 @@ export interface BodyMetric {
 }
 
 export interface DailySummary {
-    date: string;
-    total_calories: number;
-    total_protein: number;
-    total_carbs: number;
-    total_fat: number;
-    run_distance: number;
-    workout_volume_kg: number;
-    exercise_calories: number;
-    water_ml: number;
-    weight_kg: number;
+  date: string;
+  total_calories: number;
+  total_protein: number;
+  total_carbs: number;
+  total_fat: number;
+  run_distance: number;
+  workout_volume_kg: number;
+  exercise_calories: number;
+  water_ml: number;
+  weight_kg: number;
 }
