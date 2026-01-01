@@ -7,8 +7,10 @@ COPY frontend/ ./
 RUN npm run build
 
 # Build Backend
-FROM golang:1.22-alpine AS backend-builder
+FROM golang:1.23-alpine AS backend-builder
 RUN apk add --no-cache gcc musl-dev
+# Enable Go toolchain auto-download to get the required version
+ENV GOTOOLCHAIN=auto
 WORKDIR /app/backend
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
