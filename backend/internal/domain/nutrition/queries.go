@@ -15,22 +15,12 @@ func NewRepository(db *database.DB) *Repository {
 }
 
 func (r *Repository) CreateMeal(ctx context.Context, userID int, name *string, eatenAt time.Time) (*Meal, error) {
-	query := `INSERT INTO meals (user_id, name, eaten_at) VALUES (?, ?, ?)`
-	res, err := r.db.Pool.ExecContext(ctx, query, userID, name, eatenAt)
-	if err != nil {
-		return nil, err
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, err
-	}
-
+	query := `INSERT INTO meals (user_id, name, eaten_at) VALUES ($1, $2, $3) RETURNING id, created_at`
 	var m Meal
-	m.ID = int(id)
 	m.UserID = userID
 	m.Name = name
 	m.EatenAt = eatenAt
-	err = r.db.Pool.QueryRowContext(ctx, "SELECT created_at FROM meals WHERE id = ?", id).Scan(&m.CreatedAt)
+	err := r.db.Pool.QueryRowContext(ctx, query, userID, name, eatenAt).Scan(&m.ID, &m.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -40,19 +30,10 @@ func (r *Repository) CreateMeal(ctx context.Context, userID int, name *string, e
 func (r *Repository) AddFoodEntry(ctx context.Context, mealID int, name string, cals int, p, c, f float64, qty *string) (*FoodEntry, error) {
 	query := `
         INSERT INTO food_entries (meal_id, name, calories, protein_g, carbs_g, fat_g, quantity)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id, created_at
     `
-	res, err := r.db.Pool.ExecContext(ctx, query, mealID, name, cals, p, c, f, qty)
-	if err != nil {
-		return nil, err
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, err
-	}
-
 	var fe FoodEntry
-	fe.ID = int(id)
 	fe.MealID = mealID
 	fe.Name = name
 	fe.Calories = cals
@@ -60,7 +41,7 @@ func (r *Repository) AddFoodEntry(ctx context.Context, mealID int, name string, 
 	fe.CarbsG = c
 	fe.FatG = f
 	fe.Quantity = qty
-	err = r.db.Pool.QueryRowContext(ctx, "SELECT created_at FROM food_entries WHERE id = ?", id).Scan(&fe.CreatedAt)
+	err := r.db.Pool.QueryRowContext(ctx, query, mealID, name, cals, p, c, f, qty).Scan(&fe.ID, &fe.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -71,9 +52,9 @@ func (r *Repository) ListMeals(ctx context.Context, userID, limit int) ([]Meal, 
 	query := `
         SELECT id, name, eaten_at, created_at
         FROM meals
-        WHERE user_id = ?
+        WHERE user_id = $1
         ORDER BY eaten_at DESC
-        LIMIT ?
+        LIMIT $2
     `
 	rows, err := r.db.Pool.QueryContext(ctx, query, userID, limit)
 	if err != nil {
@@ -100,7 +81,7 @@ func (r *Repository) GetEntriesForMeal(ctx context.Context, mealID int) ([]FoodE
 	query := `
         SELECT id, meal_id, name, calories, protein_g, carbs_g, fat_g, quantity, created_at
         FROM food_entries
-        WHERE meal_id = ?
+        WHERE meal_id = $1
         ORDER BY id ASC
     `
 	rows, err := r.db.Pool.QueryContext(ctx, query, mealID)
@@ -124,17 +105,17 @@ func (r *Repository) GetEntriesForMeal(ctx context.Context, mealID int) ([]FoodE
 }
 
 func (r *Repository) DeleteMeal(ctx context.Context, mealID int) error {
-	_, err := r.db.Pool.ExecContext(ctx, "DELETE FROM meals WHERE id = ?", mealID)
+	_, err := r.db.Pool.ExecContext(ctx, "DELETE FROM meals WHERE id = $1", mealID)
 	return err
 }
 
 func (r *Repository) DeleteFoodEntry(ctx context.Context, entryID int) error {
-	_, err := r.db.Pool.ExecContext(ctx, "DELETE FROM food_entries WHERE id = ?", entryID)
+	_, err := r.db.Pool.ExecContext(ctx, "DELETE FROM food_entries WHERE id = $1", entryID)
 	return err
 }
 
 func (r *Repository) UpdateMeal(ctx context.Context, mealID int, name string) error {
-	_, err := r.db.Pool.ExecContext(ctx, "UPDATE meals SET name = ? WHERE id = ?", name, mealID)
+	_, err := r.db.Pool.ExecContext(ctx, "UPDATE meals SET name = $1 WHERE id = $2", name, mealID)
 	return err
 }
 
@@ -161,26 +142,21 @@ func (r *Repository) ListFoodLibrary(ctx context.Context) ([]FoodLibraryItem, er
 }
 
 func (r *Repository) CreateFoodLibraryItem(ctx context.Context, item FoodLibraryItem) (*FoodLibraryItem, error) {
-	query := `INSERT INTO food_library (name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g) VALUES (?, ?, ?, ?, ?)`
-	res, err := r.db.Pool.ExecContext(ctx, query, item.Name, item.CaloriesPer100g, item.ProteinPer100g, item.CarbsPer100g, item.FatPer100g)
+	query := `INSERT INTO food_library (name, calories_per_100g, protein_per_100g, carbs_per_100g, fat_per_100g) VALUES ($1, $2, $3, $4, $5) RETURNING id`
+	err := r.db.Pool.QueryRowContext(ctx, query, item.Name, item.CaloriesPer100g, item.ProteinPer100g, item.CarbsPer100g, item.FatPer100g).Scan(&item.ID)
 	if err != nil {
 		return nil, err
 	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, err
-	}
-	item.ID = int(id)
 	return &item, nil
 }
 
 func (r *Repository) LogWater(ctx context.Context, userID int, amount int) error {
-	_, err := r.db.Pool.ExecContext(ctx, "INSERT INTO water_logs (user_id, amount_ml) VALUES (?, ?)", userID, amount)
+	_, err := r.db.Pool.ExecContext(ctx, "INSERT INTO water_logs (user_id, amount_ml) VALUES ($1, $2)", userID, amount)
 	return err
 }
 
 func (r *Repository) GetWaterForDay(ctx context.Context, userID int, day string) (int, error) {
 	var total int
-	err := r.db.Pool.QueryRowContext(ctx, "SELECT COALESCE(SUM(amount_ml), 0) FROM water_logs WHERE user_id = ? AND date(recorded_at) = ?", userID, day).Scan(&total)
+	err := r.db.Pool.QueryRowContext(ctx, "SELECT COALESCE(SUM(amount_ml), 0) FROM water_logs WHERE user_id = $1 AND date(recorded_at) = $2", userID, day).Scan(&total)
 	return total, err
 }

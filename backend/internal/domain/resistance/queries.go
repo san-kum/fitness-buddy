@@ -37,27 +37,12 @@ func (r *Repository) ListExercises(ctx context.Context) ([]Exercise, error) {
 }
 
 func (r *Repository) CreateExercise(ctx context.Context, name, category string, equipment *string) (*Exercise, error) {
-	query := `INSERT INTO exercises (name, category, equipment) VALUES (?, ?, ?)`
-	res, err := r.db.Pool.ExecContext(ctx, query, name, category, equipment)
-	if err != nil {
-		return nil, err
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, err
-	}
-
-	// SQLite doesn't return created_at easily without fetch.
-	// Let's just create the struct manually with current time or fetch.
-	// Fetch is safer for DB truth.
-
+	query := `INSERT INTO exercises (name, category, equipment) VALUES ($1, $2, $3) RETURNING id, created_at`
 	var e Exercise
-	e.ID = int(id)
 	e.Name = name
 	e.Category = category
 	e.Equipment = equipment
-	// Fetch created_at
-	err = r.db.Pool.QueryRowContext(ctx, "SELECT created_at FROM exercises WHERE id = ?", id).Scan(&e.CreatedAt)
+	err := r.db.Pool.QueryRowContext(ctx, query, name, category, equipment).Scan(&e.ID, &e.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -65,22 +50,12 @@ func (r *Repository) CreateExercise(ctx context.Context, name, category string, 
 }
 
 func (r *Repository) CreateSession(ctx context.Context, userID int, startTime time.Time, notes *string) (*WorkoutSession, error) {
-	query := `INSERT INTO workout_sessions (user_id, start_time, notes) VALUES (?, ?, ?)`
-	res, err := r.db.Pool.ExecContext(ctx, query, userID, startTime, notes)
-	if err != nil {
-		return nil, err
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, err
-	}
-
+	query := `INSERT INTO workout_sessions (user_id, start_time, notes) VALUES ($1, $2, $3) RETURNING id, created_at`
 	var s WorkoutSession
-	s.ID = int(id)
 	s.UserID = userID
 	s.StartTime = startTime
 	s.Notes = notes
-	err = r.db.Pool.QueryRowContext(ctx, "SELECT created_at FROM workout_sessions WHERE id = ?", id).Scan(&s.CreatedAt)
+	err := r.db.Pool.QueryRowContext(ctx, query, userID, startTime, notes).Scan(&s.ID, &s.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -88,13 +63,13 @@ func (r *Repository) CreateSession(ctx context.Context, userID int, startTime ti
 }
 
 func (r *Repository) FinishSession(ctx context.Context, id int, endTime time.Time) error {
-	query := `UPDATE workout_sessions SET end_time = ? WHERE id = ?`
+	query := `UPDATE workout_sessions SET end_time = $1 WHERE id = $2`
 	_, err := r.db.Pool.ExecContext(ctx, query, endTime, id)
 	return err
 }
 
 func (r *Repository) AddSet(ctx context.Context, sessionID, exerciseID int, weight float64, reps int, rpe *float64, performedAt time.Time) (*WorkoutSet, error) {
-	countQuery := `SELECT COUNT(*) FROM workout_sets WHERE session_id = ?`
+	countQuery := `SELECT COUNT(*) FROM workout_sets WHERE session_id = $1`
 	var count int
 	if err := r.db.Pool.QueryRowContext(ctx, countQuery, sessionID).Scan(&count); err != nil {
 		return nil, err
@@ -103,19 +78,10 @@ func (r *Repository) AddSet(ctx context.Context, sessionID, exerciseID int, weig
 
 	query := `
         INSERT INTO workout_sets (session_id, exercise_id, set_order, weight_kg, reps, rpe, performed_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id, created_at
     `
-	res, err := r.db.Pool.ExecContext(ctx, query, sessionID, exerciseID, setOrder, weight, reps, rpe, performedAt)
-	if err != nil {
-		return nil, err
-	}
-	id, err := res.LastInsertId()
-	if err != nil {
-		return nil, err
-	}
-
 	var s WorkoutSet
-	s.ID = int(id)
 	s.SessionID = sessionID
 	s.ExerciseID = exerciseID
 	s.SetOrder = setOrder
@@ -124,8 +90,7 @@ func (r *Repository) AddSet(ctx context.Context, sessionID, exerciseID int, weig
 	s.RPE = rpe
 	s.PerformedAt = performedAt
 
-	// Fetch created_at
-	err = r.db.Pool.QueryRowContext(ctx, "SELECT created_at FROM workout_sets WHERE id = ?", id).Scan(&s.CreatedAt)
+	err := r.db.Pool.QueryRowContext(ctx, query, sessionID, exerciseID, setOrder, weight, reps, rpe, performedAt).Scan(&s.ID, &s.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -137,9 +102,9 @@ func (r *Repository) ListSessions(ctx context.Context, userID int, limit int) ([
 	query := `
         SELECT id, start_time, end_time, notes, created_at
         FROM workout_sessions
-        WHERE user_id = ?
+        WHERE user_id = $1
         ORDER BY start_time DESC
-        LIMIT ?
+        LIMIT $2
     `
 	rows, err := r.db.Pool.QueryContext(ctx, query, userID, limit)
 	if err != nil {
@@ -170,18 +135,15 @@ func (r *Repository) CreateRoutine(ctx context.Context, userID int, name string,
 	defer tx.Rollback()
 
 	// Create Routine
-	res, err := tx.ExecContext(ctx, "INSERT INTO routines (user_id, name, notes) VALUES (?, ?, ?)", userID, name, notes)
-	if err != nil {
-		return nil, err
-	}
-	routineID, err := res.LastInsertId()
+	var routineID int
+	err = tx.QueryRowContext(ctx, "INSERT INTO routines (user_id, name, notes) VALUES ($1, $2, $3) RETURNING id", userID, name, notes).Scan(&routineID)
 	if err != nil {
 		return nil, err
 	}
 
 	// Add Exercises
 	for i, exID := range exerciseIDs {
-		_, err := tx.ExecContext(ctx, "INSERT INTO routine_exercises (routine_id, exercise_id, exercise_order) VALUES (?, ?, ?)", routineID, exID, i+1)
+		_, err := tx.ExecContext(ctx, "INSERT INTO routine_exercises (routine_id, exercise_id, exercise_order) VALUES ($1, $2, $3)", routineID, exID, i+1)
 		if err != nil {
 			return nil, err
 		}
@@ -191,11 +153,11 @@ func (r *Repository) CreateRoutine(ctx context.Context, userID int, name string,
 		return nil, err
 	}
 
-	return r.GetRoutine(ctx, int(routineID))
+	return r.GetRoutine(ctx, routineID)
 }
 
 func (r *Repository) ListRoutines(ctx context.Context, userID int) ([]Routine, error) {
-	query := `SELECT id, name, notes, created_at FROM routines WHERE user_id = ? ORDER BY name ASC`
+	query := `SELECT id, name, notes, created_at FROM routines WHERE user_id = $1 ORDER BY name ASC`
 	rows, err := r.db.Pool.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
@@ -215,10 +177,6 @@ func (r *Repository) ListRoutines(ctx context.Context, userID int) ([]Routine, e
 		return nil, err
 	}
 
-	// Populate exercises for each routine? Or separate fetch?
-	// Efficient way: Fetch all routine_exercises for these routines.
-	// Simpler: Loop and fetch (N+1 but minimal scale).
-	// Let's loop.
 	for i := range routines {
 		exs, err := r.GetRoutineExercises(ctx, routines[i].ID)
 		if err == nil {
@@ -231,7 +189,7 @@ func (r *Repository) ListRoutines(ctx context.Context, userID int) ([]Routine, e
 
 func (r *Repository) GetRoutine(ctx context.Context, id int) (*Routine, error) {
 	var rt Routine
-	err := r.db.Pool.QueryRowContext(ctx, "SELECT id, user_id, name, notes, created_at FROM routines WHERE id = ?", id).Scan(&rt.ID, &rt.UserID, &rt.Name, &rt.Notes, &rt.CreatedAt)
+	err := r.db.Pool.QueryRowContext(ctx, "SELECT id, user_id, name, notes, created_at FROM routines WHERE id = $1", id).Scan(&rt.ID, &rt.UserID, &rt.Name, &rt.Notes, &rt.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -245,7 +203,7 @@ func (r *Repository) GetRoutineExercises(ctx context.Context, routineID int) ([]
         SELECT re.id, re.routine_id, re.exercise_id, e.name, re.exercise_order 
         FROM routine_exercises re
         JOIN exercises e ON re.exercise_id = e.id
-        WHERE re.routine_id = ?
+        WHERE re.routine_id = $1
         ORDER BY re.exercise_order ASC
     `
 	rows, err := r.db.Pool.QueryContext(ctx, query, routineID)
@@ -273,7 +231,7 @@ func (r *Repository) GetSetsForSession(ctx context.Context, sessionID int) ([]Wo
         SELECT s.id, s.session_id, s.exercise_id, e.name, s.set_order, s.weight_kg, s.reps, s.rpe, s.performed_at, s.created_at
         FROM workout_sets s
         JOIN exercises e ON s.exercise_id = e.id
-        WHERE s.session_id = ?
+        WHERE s.session_id = $1
         ORDER BY s.set_order ASC
     `
 	rows, err := r.db.Pool.QueryContext(ctx, query, sessionID)
@@ -297,23 +255,23 @@ func (r *Repository) GetSetsForSession(ctx context.Context, sessionID int) ([]Wo
 }
 
 func (r *Repository) UpdateSet(ctx context.Context, setID int, weight float64, reps int, rpe *float64) error {
-	query := `UPDATE workout_sets SET weight_kg = ?, reps = ?, rpe = ? WHERE id = ?`
+	query := `UPDATE workout_sets SET weight_kg = $1, reps = $2, rpe = $3 WHERE id = $4`
 	_, err := r.db.Pool.ExecContext(ctx, query, weight, reps, rpe, setID)
 	return err
 }
 
 func (r *Repository) DeleteSet(ctx context.Context, setID int) error {
-	query := `DELETE FROM workout_sets WHERE id = ?`
+	query := `DELETE FROM workout_sets WHERE id = $1`
 	_, err := r.db.Pool.ExecContext(ctx, query, setID)
 	return err
 }
 
 func (r *Repository) DeleteRoutine(ctx context.Context, id int) error {
-	_, err := r.db.Pool.ExecContext(ctx, "DELETE FROM routines WHERE id = ?", id)
+	_, err := r.db.Pool.ExecContext(ctx, "DELETE FROM routines WHERE id = $1", id)
 	return err
 }
 
 func (r *Repository) DeleteSession(ctx context.Context, id int) error {
-	_, err := r.db.Pool.ExecContext(ctx, "DELETE FROM workout_sessions WHERE id = ?", id)
+	_, err := r.db.Pool.ExecContext(ctx, "DELETE FROM workout_sessions WHERE id = $1", id)
 	return err
 }

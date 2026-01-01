@@ -17,24 +17,15 @@ func NewRepository(db *database.DB) *Repository {
 func (r *Repository) CreateMetric(ctx context.Context, userID int, recordedAt time.Time, weight *float64, bodyFat *float64) (*BodyMetric, error) {
 	query := `
         INSERT INTO body_metrics (user_id, recorded_at, weight_kg, body_fat_percent)
-        VALUES (?, ?, ?, ?)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, created_at
     `
-	res, err := r.db.Pool.ExecContext(ctx, query, userID, recordedAt, weight, bodyFat)
-    if err != nil {
-        return nil, err
-    }
-    id, err := res.LastInsertId()
-    if err != nil {
-        return nil, err
-    }
-
 	var bm BodyMetric
-    bm.ID = int(id)
 	bm.UserID = userID
 	bm.RecordedAt = recordedAt
 	bm.WeightKG = weight
 	bm.BodyFatPercent = bodyFat
-    err = r.db.Pool.QueryRowContext(ctx, "SELECT created_at FROM body_metrics WHERE id = ?", id).Scan(&bm.CreatedAt)
+	err := r.db.Pool.QueryRowContext(ctx, query, userID, recordedAt, weight, bodyFat).Scan(&bm.ID, &bm.CreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -45,9 +36,9 @@ func (r *Repository) ListMetrics(ctx context.Context, userID, limit int) ([]Body
 	query := `
         SELECT id, recorded_at, weight_kg, body_fat_percent, created_at
         FROM body_metrics
-        WHERE user_id = ?
+        WHERE user_id = $1
         ORDER BY recorded_at DESC
-        LIMIT ?
+        LIMIT $2
     `
 	rows, err := r.db.Pool.QueryContext(ctx, query, userID, limit)
 	if err != nil {
