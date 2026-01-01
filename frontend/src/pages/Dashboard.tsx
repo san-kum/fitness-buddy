@@ -75,7 +75,13 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="space-y-10 md:space-y-12 animate-fade-in">
+        <div className="space-y-10 md:space-y-12 animate-fade-in relative">
+            {/* Ambient Background Orbs */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+                <div className="ambient-orb ambient-orb-1" />
+                <div className="ambient-orb ambient-orb-2" />
+                <div className="ambient-orb ambient-orb-3" />
+            </div>
             {/* Header */}
             <header className="space-y-2">
                 <p className="text-neutral-500 font-medium text-sm">

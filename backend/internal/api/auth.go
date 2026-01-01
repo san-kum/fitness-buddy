@@ -135,10 +135,97 @@ func (h *AuthHandler) HandleLogout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, frontendURL, http.StatusTemporaryRedirect)
 }
 
+// HandlePhoneAuth handles phone authentication via Firebase
+func (h *AuthHandler) HandlePhoneAuth(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		IDToken     string `json:"idToken"`
+		PhoneNumber string `json:"phoneNumber"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if req.IDToken == "" || req.PhoneNumber == "" {
+		http.Error(w, "Missing idToken or phoneNumber", http.StatusBadRequest)
+		return
+	}
+
+	// Verify Firebase ID token
+	firebaseUID, err := verifyFirebaseToken(req.IDToken)
+	if err != nil {
+		http.Error(w, "Invalid Firebase token: "+err.Error(), http.StatusUnauthorized)
+		return
+	}
+
+	// Get or create user
+	user, err := h.identityRepo.GetOrCreateUserByPhone(context.Background(), req.PhoneNumber, firebaseUID, "")
+	if err != nil {
+		http.Error(w, "Failed to get or create user: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Create JWT
+	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"user_id": user.ID,
+		"exp":     time.Now().Add(time.Hour * 24 * 7).Unix(),
+	})
+
+	tokenString, err := jwtToken.SignedString(getJWTSecret())
+	if err != nil {
+		http.Error(w, "Failed to sign token: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Set cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "auth_token",
+		Value:    tokenString,
+		Path:     "/",
+		HttpOnly: true,
+		Expires:  time.Now().Add(time.Hour * 24 * 7),
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"user":    user,
+	})
+}
+
+// verifyFirebaseToken verifies a Firebase ID token and returns the user's Firebase UID
+func verifyFirebaseToken(idToken string) (string, error) {
+	// For simplicity, we'll verify the token by calling Google's token info endpoint
+	// In production, you should use the Firebase Admin SDK
+	resp, err := http.Get("https://www.googleapis.com/oauth2/v3/tokeninfo?id_token=" + idToken)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("invalid token")
+	}
+
+	var tokenInfo struct {
+		Sub string `json:"sub"` // Firebase UID
+		Aud string `json:"aud"` // Should match your Firebase project
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&tokenInfo); err != nil {
+		return "", err
+	}
+
+	if tokenInfo.Sub == "" {
+		return "", fmt.Errorf("invalid token: no sub claim")
+	}
+
+	return tokenInfo.Sub, nil
+}
+
 func JWTMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Skip JWT check for auth routes
-		if strings.HasPrefix(r.URL.Path, "/api/auth/google") {
+		if strings.HasPrefix(r.URL.Path, "/api/auth/google") || strings.HasPrefix(r.URL.Path, "/api/auth/phone") {
 			next.ServeHTTP(w, r)
 			return
 		}

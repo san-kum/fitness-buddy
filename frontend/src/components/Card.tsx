@@ -18,9 +18,9 @@ export function Card({
 }: CardProps) {
   const variants = {
     default: 'card-base card-hover',
-    interactive: 'card-interactive',
-    glass: 'glass rounded-3xl',
-    gradient: 'card-base gradient-border',
+    interactive: 'card-interactive card-glow-hover',
+    glass: 'glass rounded-3xl card-glow-hover',
+    gradient: 'card-base gradient-border card-glow-hover',
   };
 
   const paddings = {
@@ -77,7 +77,7 @@ export function StatCard({
 
       <div className="mt-auto">
         <div className="flex items-baseline gap-1.5">
-          <span className="stat-value">{value}</span>
+          <span className="stat-value stat-glow animate-number-in">{value}</span>
           {unit && <span className="text-[10px] font-bold text-neutral-600 uppercase tracking-widest">{unit}</span>}
         </div>
 
@@ -109,7 +109,7 @@ export function ActionCard({
     <Card
       variant="interactive"
       className={clsx(
-        "group flex items-center justify-between hover:bg-white transition-all duration-500",
+        "group flex items-center justify-between hover:bg-white transition-all duration-500 btn-lift",
         className
       )}
       onClick={onClick}
@@ -119,7 +119,7 @@ export function ActionCard({
       </span>
       {icon && (
         <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center group-hover:bg-black/10 transition-colors">
-          <div className="text-white group-hover:text-black transition-colors">
+          <div className="text-white group-hover:text-black transition-colors icon-glow-hover">
             {icon}
           </div>
         </div>

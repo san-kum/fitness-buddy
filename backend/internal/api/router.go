@@ -39,6 +39,7 @@ func NewRouter(db *database.DB, frontendFS fs.FS) http.Handler {
 		r.Get("/auth/google/login", authHandler.HandleGoogleLogin)
 		r.Get("/auth/google/callback", authHandler.HandleGoogleCallback)
 		r.Get("/auth/logout", authHandler.HandleLogout)
+		r.Post("/auth/phone", authHandler.HandlePhoneAuth)
 
 		identityHandler := identity.NewHandler(identityRepo)
 		identityHandler.RegisterRoutes(r)

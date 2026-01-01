@@ -5,27 +5,29 @@ import (
 )
 
 type User struct {
+	ID int `json:"id"`
 
-	ID            int       `json:"id"`
+	Name string `json:"name"`
 
-	Name          string    `json:"name"`
+	Email *string `json:"email"`
 
-	Email         *string   `json:"email"`
+	GoogleID *string `json:"google_id"`
 
-	GoogleID      *string   `json:"google_id"`
+	PhoneNumber *string `json:"phone_number"`
 
-	HeightCM      *float64  `json:"height_cm"`
+	FirebaseUID *string `json:"firebase_uid"`
 
-	DOB           *string   `json:"dob"`
+	HeightCM *float64 `json:"height_cm"`
 
-	Sex           *string   `json:"sex"`
+	DOB *string `json:"dob"`
 
-	ActivityLevel *string   `json:"activity_level"`
+	Sex *string `json:"sex"`
 
-	WeightGoal    *string   `json:"weight_goal"`
+	ActivityLevel *string `json:"activity_level"`
 
-	CreatedAt     time.Time `json:"created_at"`
+	WeightGoal *string `json:"weight_goal"`
 
-	UpdatedAt     time.Time `json:"updated_at"`
+	CreatedAt time.Time `json:"created_at"`
 
+	UpdatedAt time.Time `json:"updated_at"`
 }
